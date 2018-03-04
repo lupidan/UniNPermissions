@@ -7,5 +7,6 @@ namespace UniNPermissions
     {
         PermissionStatus For(string permission);
         void RequestPermissionFor(string permission, Action<PermissionStatus> callback);
+        void OpenApplicationSettings();
     }
 }
