@@ -5,62 +5,86 @@ namespace UniNPermissions
 {
     public class AndroidPermissions : IPermissions
     {
-        private class OnRequestPermissionsResultCallback : AndroidJavaProxy
+        private static class ClassName
         {
-            private const string OnRequestPermissionsResultCallbackClassPath = "android.support.v4.app.ActivityCompat.OnRequestPermissionsResultCallback";
-            private readonly Action<int, string[], int[]> _onPermissionResultCallback;
-
-            public OnRequestPermissionsResultCallback(Action<int, string[], int[]> onPermissionResultCallback) : base(OnRequestPermissionsResultCallbackClassPath)
-            {
-                this._onPermissionResultCallback = onPermissionResultCallback;
-            }
-
-            void onRequestPermissionsResult(int requestCode, string[] permissions, int[] grantResults)
-            {
-                this._onPermissionResultCallback(requestCode, permissions, grantResults);
-            }
+            public const string PermissionRequestFragment = "com.lupidan.uninpermissionsandroid.PermissionRequestFragment";
+            public const string ActivityCompat = "android.support.v4.app.ActivityCompat";
+            public const string ContextCompat = "android.support.v4.content.ContextCompat";
+            public const string UnityPlayer = "com.unity3d.player.UnityPlayer";
         }
 
-        private const string ACTION_APPLICATION_DETAILS_SETTINGS = "android.settings.APPLICATION_DETAILS_SETTINGS";
+        private static class InterfaceName
+        {
+            public const string PermissionRequestFragmentResultCallback = "com.lupidan.uninpermissionsandroid.PermissionRequestFragment$ResultCallback";
+        }
+
+        private static class MethodName
+        {
+            public const string CurrentActivity = "currentActivity";
+            public const string SetResultCallback = "setResultCallback";
+            public const string CheckSelfPermission = "checkSelfPermission";
+            public const string ShouldShowRequestPermissionRationale = "shouldShowRequestPermissionRationale";
+            public const string NewInstance = "newInstance";
+            public const string GetSupportFragmentManager = "getSupportFragmentManager";
+            public const string BeginTransaction = "beginTransaction";
+            public const string Add = "add";
+            public const string Commit = "commit";
+            public const string OpenApplicationSettings = "openApplicationSettings";
+        }
+
         private const int PERMISSION_GRANTED = 0;
         private const int PERMISSION_DENIED = -1;
 
-        private readonly string unityPlayerClassPath = null;
-        private readonly OnRequestPermissionsResultCallback _callback;
-        private readonly AndroidJavaClass _unityPlayerClass;
+        private class ResultCallback : AndroidJavaProxy
+        {
+            private readonly Action<int, string, int> _resultCallback;
+
+            public ResultCallback(Action<int, string, int> onPermissionResultCallback) : base(InterfaceName.PermissionRequestFragmentResultCallback)
+            {
+                this._resultCallback = onPermissionResultCallback;
+            }
+
+            void onRequestPermissionResult(int requestCode, string permission, int grantResult)
+            {
+                this._resultCallback(requestCode, permission, grantResult);
+            }
+        }
+
         private readonly AndroidJavaClass _activityCompatClass;
         private readonly AndroidJavaClass _contextCompatClass;
+        private readonly AndroidJavaClass _permissionRequestFragmentClass;
         private readonly AndroidJavaObject _currentActivity;
-        private readonly AndroidJavaClass _uriClass;
 
-        private bool requestedPermissionInSession = false;
+        private Action<PermissionStatus> _permissionResultCallback;
+        private bool _requestedPermissionInSession = false;
 
-        public AndroidPermissions(string unityPlayerClassPath)
+        public AndroidPermissions(string requestCallbackInterfaceName)
         {
-            this._callback = new OnRequestPermissionsResultCallback(OnRequestPermissionResult);
-            this._unityPlayerClass = new AndroidJavaClass(unityPlayerClassPath);
-            this._activityCompatClass = new AndroidJavaClass("android.support.v4.app.ActivityCompat");
-            this._contextCompatClass = new AndroidJavaClass("android.support.v4.content.ContextCompat");
-            this._currentActivity = this._unityPlayerClass.GetStatic<AndroidJavaObject>("currentActivity");
-            this._uriClass = new AndroidJavaClass("android.net.Uri");
+            this._activityCompatClass = new AndroidJavaClass(ClassName.ActivityCompat);
+            this._contextCompatClass = new AndroidJavaClass(ClassName.ContextCompat);
+            this._permissionRequestFragmentClass = new AndroidJavaClass(ClassName.PermissionRequestFragment);
 
-            this._unityPlayerClass.Call("setOnRequestPermissionsResultCallback", this._callback);
+            var unityPlayer = new AndroidJavaClass(ClassName.UnityPlayer);
+            this._currentActivity = unityPlayer.GetStatic<AndroidJavaObject>(MethodName.CurrentActivity);
+
+            var callback = new ResultCallback(OnRequestPermissionResult);
+            this._permissionRequestFragmentClass.CallStatic(MethodName.SetResultCallback, callback);
         }
 
         public PermissionStatus For(string permission)
         {
-            int selfPermission = this._contextCompatClass.Call<int>("checkSelfPermission", permission);
-            bool shouldDisplayPermission = this._activityCompatClass.Call<bool>("shouldShowRequestPermissionRationale", this._currentActivity, permission);
+            var selfPermission = this._contextCompatClass.CallStatic<int>(MethodName.CheckSelfPermission, this._currentActivity, permission);
+            var shouldDisplayRationale = this._activityCompatClass.CallStatic<bool>(MethodName.ShouldShowRequestPermissionRationale, this._currentActivity, permission);
 
             if (selfPermission == PERMISSION_GRANTED)
                 return PermissionStatus.Authorized;
 
-            if (selfPermission == PERMISSION_GRANTED)
+            if (selfPermission == PERMISSION_DENIED)
             {
-                if (shouldDisplayPermission)
+                if (shouldDisplayRationale)
                     return PermissionStatus.NotDeterminedButAsked;
 
-                if (this.requestedPermissionInSession)
+                if (this._requestedPermissionInSession)
                     return PermissionStatus.Denied;
 
                 return PermissionStatus.NotDetermined;
@@ -71,28 +95,29 @@ namespace UniNPermissions
 
         public void RequestPermissionFor(string permission, Action<PermissionStatus> callback)
         {
+            this._permissionResultCallback = callback;
             int requestCode = 234;
             string[] permissions = new string[] {permission};
-            this._activityCompatClass.Call("requestPermissions", this._currentActivity, permissions, requestCode);
+
+            var fragment = this._permissionRequestFragmentClass.CallStatic<AndroidJavaObject>(MethodName.NewInstance, permissions, requestCode);
+
+            var fragmentManager = this._currentActivity.Call<AndroidJavaObject>(MethodName.GetSupportFragmentManager);
+            var fragmentTransaction = fragmentManager
+                .Call<AndroidJavaObject>(MethodName.BeginTransaction)
+                .Call<AndroidJavaObject>(MethodName.Add, 0, fragment)
+                .Call<AndroidJavaObject>(MethodName.Commit);
         }
 
         public void OpenApplicationSettings()
         {
-            string packageName = this._currentActivity.Call<string>("getPackageName");
-            string fragment = null;
-            AndroidJavaObject intent = new AndroidJavaObject("android.content.Intent");
-            AndroidJavaObject uri = this._uriClass.CallStatic<AndroidJavaObject>("fromParts", "package", packageName, fragment);
-            intent = intent.Call<AndroidJavaObject>("setAction", ACTION_APPLICATION_DETAILS_SETTINGS);
-            intent = intent.Call<AndroidJavaObject>("setData", uri);
-            this._currentActivity.Call("startActivity", intent);
+            this._permissionRequestFragmentClass.CallStatic(MethodName.OpenApplicationSettings, this._currentActivity);
         }
 
-        private void OnRequestPermissionResult(int requestCode, string[] requestedPermissions, int[] requestedPermissionResults)
+        private void OnRequestPermissionResult(int requestCode, string requestedPermission, int requestedPermissionResult)
         {
-            this.requestedPermissionInSession = true;
-            Debug.Log("Result " + requestCode);
+            Debug.Log(string.Format("Received requestCode={0} permission={1} result={2}", requestCode, requestedPermission, requestedPermissionResult));
+            this._requestedPermissionInSession = true;
+            this._permissionResultCallback(For(requestedPermission));
         }
-
-
     }
 }
