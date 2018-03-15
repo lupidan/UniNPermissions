@@ -7,7 +7,7 @@ public class TestingMenu : MonoBehaviour
 
 	private void Awake()
 	{
-		this._permissions = new AndroidPermissions("com.lupidan.UniNPermission.UniNPermissionPlayer");
+		this._permissions = new AndroidPermissions();
 	}
 
 	public void RequestPermissionButtonPressed()
@@ -18,12 +18,18 @@ public class TestingMenu : MonoBehaviour
 	private void CheckAccessToFineLocation()
 	{
 		PermissionStatus status = this._permissions.For("android.permission.ACCESS_FINE_LOCATION");
+		Debug.Log("Checking permission is "+status);
 		switch (status)
 		{
 			case PermissionStatus.NotDetermined:
+				Debug.Log("Requesting permission");
 				this._permissions.RequestPermissionFor("android.permission.ACCESS_FINE_LOCATION", permissionStatus =>
 					{
-						CheckAccessToFineLocation();
+						Debug.Log("Callback received!! "+permissionStatus);
+						if (permissionStatus == PermissionStatus.NotDeterminedButAsked)
+						{
+							CheckAccessToFineLocation();
+						}
 					});
 				break;
 
@@ -36,7 +42,8 @@ public class TestingMenu : MonoBehaviour
 				break;
 
 			case PermissionStatus.Denied:
-				Debug.Log("You do not have access to that permission.");
+				Debug.Log("You do not have access to that permission. Opening Application settings.");
+				this._permissions.OpenApplicationSettings();
 				break;
 		}
 	}

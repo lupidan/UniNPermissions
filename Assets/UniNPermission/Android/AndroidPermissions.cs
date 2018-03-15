@@ -58,7 +58,7 @@ namespace UniNPermissions
         private Action<PermissionStatus> _permissionResultCallback;
         private bool _requestedPermissionInSession = false;
 
-        public AndroidPermissions(string requestCallbackInterfaceName)
+        public AndroidPermissions()
         {
             this._activityCompatClass = new AndroidJavaClass(ClassName.ActivityCompat);
             this._contextCompatClass = new AndroidJavaClass(ClassName.ContextCompat);
