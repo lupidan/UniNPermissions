@@ -1,6 +1,7 @@
 package com.lupidan.uninpermissionsandroid;
 
 import android.annotation.TargetApi;
+import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -8,7 +9,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
-import android.support.v4.app.Fragment;
 
 @TargetApi(Build.VERSION_CODES.M)
 public class PermissionRequestFragment extends Fragment {
