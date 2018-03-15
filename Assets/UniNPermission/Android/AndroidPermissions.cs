@@ -25,7 +25,7 @@ namespace UniNPermissions
             public const string CheckSelfPermission = "checkSelfPermission";
             public const string ShouldShowRequestPermissionRationale = "shouldShowRequestPermissionRationale";
             public const string NewInstance = "newInstance";
-            public const string GetSupportFragmentManager = "getSupportFragmentManager";
+            public const string GetFragmentManager = "getFragmentManager";
             public const string BeginTransaction = "beginTransaction";
             public const string Add = "add";
             public const string Commit = "commit";
@@ -101,11 +101,11 @@ namespace UniNPermissions
 
             var fragment = this._permissionRequestFragmentClass.CallStatic<AndroidJavaObject>(MethodName.NewInstance, permissions, requestCode);
 
-            var fragmentManager = this._currentActivity.Call<AndroidJavaObject>(MethodName.GetSupportFragmentManager);
+            var fragmentManager = this._currentActivity.Call<AndroidJavaObject>(MethodName.GetFragmentManager);
             var fragmentTransaction = fragmentManager
                 .Call<AndroidJavaObject>(MethodName.BeginTransaction)
                 .Call<AndroidJavaObject>(MethodName.Add, 0, fragment)
-                .Call<AndroidJavaObject>(MethodName.Commit);
+                .Call<int>(MethodName.Commit);
         }
 
         public void OpenApplicationSettings()
