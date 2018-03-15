@@ -1,8 +1,12 @@
 package com.lupidan.uninpermissionsandroid;
 
 import android.annotation.TargetApi;
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 
@@ -24,9 +28,13 @@ public class PermissionRequestFragment extends Fragment {
         sResultCallback = resultCallback;
     }
 
-    public static void OpenApplicationSettings()
+    public static void openApplicationSettings(Context context)
     {
-
+        Uri appSettingsUri = Uri.fromParts("package", context.getPackageName(), null);
+        Intent appSettingsIntent = new Intent();
+        appSettingsIntent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        appSettingsIntent.setData(appSettingsUri);
+        context.startActivity(appSettingsIntent);
     }
 
     public static PermissionRequestFragment newInstance(String[] permissionsToRequest, int requestCode) {
