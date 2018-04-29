@@ -80,21 +80,19 @@ namespace UniNPermissions
                 if (manifest.permissions == null)
                     manifest.permissions = new Permission[] {};
 
+                var skipPermission = Array.Find<Metadata>(manifest.application.metadata, metadata => metadata.Name == "unityplayer.SkipPermissionsDialog");
+                var skipPermissionWasTrue = skipPermission != null && skipPermission.Value == "true";
+                var skipPermissionIsTrue = GUILayout.Toggle(skipPermissionWasTrue, "Request at startup:");
+                skipPermission.Value = skipPermissionIsTrue ? "true" : "false";
+                if (skipPermissionWasTrue != skipPermissionIsTrue)
+                    saveChanges = true;
+
                 for (var i = 0; i < manifest.permissions.Length; i++)
                 {
-                    GUILayout.BeginHorizontal();
-
-                    var oldPermissionName = manifest.permissions[i].PermissionName;
-                    var newPermissionName = GUILayout.TextField(oldPermissionName);
-                    manifest.permissions[i].PermissionName = newPermissionName;
-
-                    if (oldPermissionName != newPermissionName)
-                        saveChanges = true;
-
-                    if (GUILayout.Button("X", GUILayout.Width(30)))
+                    var shouldDelete = false;
+                    AndroidPermissionGUI(manifest.permissions[i], ref saveChanges, out shouldDelete);
+                    if (shouldDelete)
                         permissionIndexesToDelete.Add(i);
-
-                    GUILayout.EndHorizontal();
                 }
 
                 var newPermissions = new List<Permission>(manifest.permissions);
@@ -118,6 +116,25 @@ namespace UniNPermissions
                     SaveAndroidManifestFile(manifest);
                 }
             }
+        }
+
+        private void AndroidPermissionGUI(Permission permission, ref bool saveChanges, out bool shouldDelete)
+        {
+            GUILayout.BeginHorizontal();
+
+            shouldDelete = false;
+
+            var oldPermissionName = permission.name;
+            var newPermissionName = GUILayout.TextField(oldPermissionName);
+            permission.name = newPermissionName;
+
+            if (oldPermissionName != newPermissionName)
+                saveChanges = true;
+
+            if (GUILayout.Button("X", GUILayout.Width(30)))
+                shouldDelete = true;
+
+            GUILayout.EndHorizontal();
         }
 
         private void IOSGUI()
@@ -181,24 +198,49 @@ namespace UniNPermissions
         public class Manifest
         {
             [XmlAnyAttribute]
-            public XmlAttribute[] AllAttributes;
+            public XmlAttribute[] allAttributes;
 
             [XmlAnyElement]
-            public XmlElement[] AllElements;
+            public XmlElement[] allElements;
 
             [XmlElement("uses-permission")]
             public Permission[] permissions;
+
+            [XmlElement("application")]
+            public Application application;
+        }
+
+        public class Application
+        {
+            [XmlAnyAttribute]
+            public XmlAttribute[] allAttributes;
+
+            [XmlAnyElement]
+            public XmlElement[] allElements;
+
+            [XmlElement("meta-data")]
+            public Metadata[] metadata;
         }
 
         public class Permission
         {
             public static Permission PermissionForPermissionName(string permissionName)
             {
-                return new Permission() {PermissionName = permissionName};
+                return new Permission() {name = permissionName};
             }
 
             [XmlAttribute("name", Namespace = "http://schemas.android.com/apk/res/android")]
-            public string PermissionName;
+            public string name;
         }
+
+        public class Metadata
+        {
+            [XmlAttribute("name", Namespace = "http://schemas.android.com/apk/res/android")]
+            public string Name;
+
+            [XmlAttribute("value", Namespace = "http://schemas.android.com/apk/res/android")]
+            public string Value;
+        }
+
     }
 }
