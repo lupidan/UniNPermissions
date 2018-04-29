@@ -1,5 +1,9 @@
 ﻿
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Xml;
 using System.Xml.Serialization;
 using UnityEditor;
 using UnityEngine;
@@ -64,8 +68,55 @@ namespace UniNPermissions
             var androidManifestFileExist = File.Exists(androidManifestFile);
             if (!androidManifestFileExist)
             {
-                if (GUILayout.Button("Create AndroidManifest.xml"))
-                    CreateAndroidManifestFile();
+                //if (GUILayout.Button("Create AndroidManifest.xml"))
+                //    CreateTestAndroidManifestFile();
+            }
+            else
+            {
+                var manifest = ReadAndroidManifestFile();
+                var saveChanges = false;
+                var permissionIndexesToDelete = new List<int>();
+
+                if (manifest.permissions == null)
+                    manifest.permissions = new Permission[] {};
+
+                for (var i = 0; i < manifest.permissions.Length; i++)
+                {
+                    GUILayout.BeginHorizontal();
+
+                    var oldPermissionName = manifest.permissions[i].PermissionName;
+                    var newPermissionName = GUILayout.TextField(oldPermissionName);
+                    manifest.permissions[i].PermissionName = newPermissionName;
+
+                    if (oldPermissionName != newPermissionName)
+                        saveChanges = true;
+
+                    if (GUILayout.Button("X", GUILayout.Width(30)))
+                        permissionIndexesToDelete.Add(i);
+
+                    GUILayout.EndHorizontal();
+                }
+
+                var newPermissions = new List<Permission>(manifest.permissions);
+
+                permissionIndexesToDelete.Sort();
+                for (int i = permissionIndexesToDelete.Count - 1; i >= 0; i--)
+                {
+                    newPermissions.RemoveAt(permissionIndexesToDelete[i]);
+                    saveChanges = true;
+                }
+
+                if (GUILayout.Button("+"))
+                {
+                    newPermissions.Add(Permission.PermissionForPermissionName("android.permission.DEFINE_THIS"));
+                    saveChanges = true;
+                }
+
+                if (saveChanges)
+                {
+                    manifest.permissions = newPermissions.ToArray();
+                    SaveAndroidManifestFile(manifest);
+                }
             }
         }
 
@@ -101,40 +152,53 @@ namespace UniNPermissions
 
         #region Handling AndroidManifest.xml file
 
-        private const string androidManifestFile = "Assets/Plugins/Android/AndroidManifest2.xml";
+        private const string androidManifestFile = "Assets/Plugins/Android/AndroidManifest.xml";
 
-        private UniNPermissionsSettings LoadAndroidManifestFile()
+        private Manifest ReadAndroidManifestFile()
         {
-            return AssetDatabase.LoadAssetAtPath<UniNPermissionsSettings>(settingsAssetPath);
+            var serializer = new XmlSerializer(typeof(Manifest));
+            var stream = new FileStream(androidManifestFile, FileMode.Open);
+            var manifest = serializer.Deserialize(stream) as Manifest;
+            stream.Close();
+
+            return manifest;
         }
 
-        private void CreateAndroidManifestFile()
+        private void SaveAndroidManifestFile(Manifest manifest)
         {
-            /*var manifest = new Manifest();
-            manifest.permission = new Permission();
-            manifest.permission.PermissionName = "android.permission.SEND_SMS";
-
             var namespaces = new XmlSerializerNamespaces();
             namespaces.Add("android", "http://schemas.android.com/apk/res/android");
 
             var serializer = new XmlSerializer(typeof(Manifest));
-            var stream = new FileStream(androidManifestFile, FileMode.CreateNew);
+            var stream = new StreamWriter(androidManifestFile, false, Encoding.UTF8);
             serializer.Serialize(stream, manifest, namespaces);
-            stream.Close();*/
+            stream.Close();
         }
 
         #endregion
 
-
-        /*[XmlRoot("manifest", Namespace = "http://schemas.android.com/apk/res/android")]
+        [XmlRoot("manifest")]
         public class Manifest
         {
-            [XmlElement("uses-permission")] public Permission permission;
+            [XmlAnyAttribute]
+            public XmlAttribute[] AllAttributes;
+
+            [XmlAnyElement]
+            public XmlElement[] AllElements;
+
+            [XmlElement("uses-permission")]
+            public Permission[] permissions;
         }
 
         public class Permission
         {
-            [XmlAttribute("name", Namespace ="http://schemas.android.com/apk/res/android")] public string PermissionName;
-        }*/
+            public static Permission PermissionForPermissionName(string permissionName)
+            {
+                return new Permission() {PermissionName = permissionName};
+            }
+
+            [XmlAttribute("name", Namespace = "http://schemas.android.com/apk/res/android")]
+            public string PermissionName;
+        }
     }
 }
